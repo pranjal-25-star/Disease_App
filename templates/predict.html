@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Disease Prediction</title>
+<style>
+/* Body and background */
+body {
+    font-family: "Poppins", sans-serif;
+    margin: 0;
+    padding: 0;
+    min-height: 100vh;
+    background: linear-gradient(to bottom, #cce7ff, #e6f3ff);
+    background-size: cover;
+    color: #000;
+    position: relative;
+    overflow-x: hidden;
+}
+
+/* Medical background overlay */
+body::after {
+    content: "";
+    position: fixed;
+    top:0; left:0; width:100%; height:100%;
+    background: url('https://images.unsplash.com/photo-1588776814546-4e0227aefc2b?auto=format&fit=crop&w=1470&q=80') no-repeat center center;
+    background-size: cover;
+    opacity: 0.05;
+    pointer-events: none;
+    z-index: -1;
+}
+
+/* Navbar */
+.navbar {
+width: 100%;
+display: flex;
+justify-content: space-between;
+align-items: center;
+padding: 15px 30px;
+box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+background: rgba(255,255,255,0.85);
+position: sticky;
+top: 0;
+z-index: 1000;
+transition: 0.3s;
+border-radius: 0 0 15px 15px;
+}
+
+.navbar h1 { font-size: 24px; color: #007bff; margin: 0; }
+body.dark-theme .navbar h1 { color: #00bfff; }
+
+.navbar a { margin-left: 20px; text-decoration: none; color: #007bff; font-weight: 500; transition: 0.3s; }
+body.dark-theme .navbar a { color: #00bfff; }
+.navbar a:hover { color: #0056b3; }
+
+
+/* Main container */
+.main-container {
+    max-width: 900px;
+    margin: 60px auto;
+    padding: 30px;
+    background: rgba(255,255,255,0.9);
+    border-radius: 20px;
+    box-shadow: 0px 10px 30px rgba(0,0,0,0.2);
+    backdrop-filter: blur(5px);
+}
+
+/* Headings */
+.main-container h2 { color: #0d6efd; text-align: center; margin-bottom: 25px; }
+
+/* Inputs */
+.symptom-input {
+    width: 100%;
+    padding: 12px;
+    margin-bottom: 20px;
+    border: 1px solid #0d6efd;
+    border-radius: 8px;
+    font-size: 14px;
+}
+
+.autocomplete-suggestions {
+    border: 1px solid #0d6efd;
+    max-height: 150px;
+    overflow-y: auto;
+    background: #fff;
+    position: absolute;
+    z-index: 1000;
+}
+
+.autocomplete-suggestion { padding: 8px; cursor: pointer; }
+.autocomplete-suggestion:hover { background: #e0f0ff; }
+
+/* Selected symptoms */
+.symptom-chip {
+    display: inline-block;
+    padding: 6px 12px;
+    margin: 3px;
+    background: #0d6efd;
+    color: white;
+    border-radius: 20px;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+/* Results container */
+.results-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 25px;
+    justify-content: center;
+}
+
+.result-box {
+    background: rgba(13, 110, 253, 0.1);
+    padding: 12px;
+    border-radius: 12px;
+    width: 140px;
+    text-align: center;
+    font-size: 14px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+}
+
+/* Highest probability advice */
+.highest-advice {
+    margin-top: 25px;
+    padding: 15px;
+    background: rgba(13, 110, 253, 0.1);
+    border-left: 5px solid #0d6efd;
+    border-radius: 10px;
+    font-size: 14px;
+    text-align: center;
+}
+
+/* Buttons */
+button {
+    padding: 10px 20px;
+    font-size: 15px;
+    margin-top: 15px;
+    cursor: pointer;
+    background: #0d6efd;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    transition: 0.3s;
+}
+button:hover { background: #0056b3; }
+
+/* Hospital icons faint overlay */
+body::before {
+    content: "";
+    position: fixed;
+    top:0; left:0; width:100%; height:100%;
+    background: url('https://img.icons8.com/color/96/hospital-room.png') repeat;
+    opacity: 0.03;
+    pointer-events: none;
+    z-index: -1;
+}
+</style>
+</head>
+<body>
+
+<div class="navbar">
+    <h1>HealthPredictor</h1>
+    <div>
+        <a href="/">Home</a>
+        <a href="/predict">Predict</a>
+        <a href="/stats">Trends</a>
+    </div>
+</div>
+
+<div class="main-container">
+    <h2>Disease Prediction</h2>
+
+    <div style="position:relative;">
+        <input type="text" id="symptom-input" class="symptom-input" placeholder="Type symptom..." autocomplete="off">
+        <div id="autocomplete-list" class="autocomplete-suggestions"></div>
+    </div>
+    <div id="selected-symptoms"></div>
+
+    <button id="predict-btn">Predict Disease</button>
+
+    <div class="results-container" id="results-container"></div>
+    <div class="highest-advice" id="highest-advice"></div>
+</div>
+
+<script>
+// JavaScript remains the same as before
+let symptomsList = [];
+let selectedSymptoms = [];
+let lang = "en";
+let lastResults = [];
+
+fetch(`/api/symptoms?lang=${lang}`)
+.then(res => res.json())
+.then(data => { symptomsList = data; });
+
+const input = document.getElementById("symptom-input");
+const autocompleteList = document.getElementById("autocomplete-list");
+
+input.addEventListener("input", function() {
+    let val = this.value.toLowerCase();
+    autocompleteList.innerHTML = "";
+    if (!val) return;
+    let matches = symptomsList.filter(s => s.toLowerCase().includes(val) && !selectedSymptoms.includes(s));
+    matches.forEach(s => {
+        let div = document.createElement("div");
+        div.classList.add("autocomplete-suggestion");
+        div.innerText = s;
+        div.addEventListener("click", function() {
+            selectedSymptoms.push(s);
+            renderSelectedSymptoms();
+            input.value = "";
+            autocompleteList.innerHTML = "";
+        });
+        autocompleteList.appendChild(div);
+    });
+});
+
+function renderSelectedSymptoms() {
+    const container = document.getElementById("selected-symptoms");
+    container.innerHTML = "";
+    selectedSymptoms.forEach((s, idx) => {
+        let span = document.createElement("span");
+        span.classList.add("symptom-chip");
+        span.innerText = s + " ×";
+        span.addEventListener("click", () => {
+            selectedSymptoms.splice(idx, 1);
+            renderSelectedSymptoms();
+        });
+        container.appendChild(span);
+    });
+}
+
+document.getElementById("predict-btn").addEventListener("click", function() {
+    if (selectedSymptoms.length === 0) {
+        alert("Please select at least one symptom");
+        return;
+    }
+    fetch("/api/predict", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ symptoms: selectedSymptoms, lang: lang })
+    })
+    .then(res => res.json())
+    .then(data => {
+        lastResults = data.results;
+        displayResults(data.results);
+    });
+});
+
+function displayResults(results) {
+    const container = document.getElementById("results-container");
+    container.innerHTML = "";
+    let highest = null;
+    results.forEach(r => {
+        if (r.probability > 0) {
+            let box = document.createElement("div");
+            box.classList.add("result-box");
+            box.innerHTML = `<strong>${r.disease}</strong><br>${r.probability}%`;
+            container.appendChild(box);
+            if (!highest || r.probability > highest.probability) highest = r;
+        }
+    });
+
+    const adviceBox = document.getElementById("highest-advice");
+    if (highest) {
+        adviceBox.innerHTML = `<strong>Most probable disease: ${highest.disease} (${highest.probability}%)</strong><br>Advice: ${highest.advice}`;
+    } else {
+        adviceBox.innerHTML = "";
+    }
+}
+</script>
+
+</body>
+</html>

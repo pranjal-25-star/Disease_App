@@ -1,0 +1,174 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Stats - Statewise Graphs (India)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      font-family: "Poppins", sans-serif;
+      margin: 0;
+      padding: 10px;
+      background: linear-gradient(to bottom, #cce7ff, #e6f3ff);
+      color: #111;
+    }
+
+    nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 15px;
+      background: rgba(255,255,255,0.95);
+      position: fixed;
+      top: 0;
+      width: 100%;
+      z-index: 100;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+      border-radius: 0 0 15px 15px;
+      height: 50px;
+    }
+
+    nav .logo { font-size: 18px; font-weight: bold; color: #007bff; }
+    nav .nav-links a { margin: 0 10px; text-decoration: none; color: #007bff; font-weight: bold; transition: 0.3s; }
+    nav .nav-links a:hover { color: #0056b3; }
+
+    .card {
+      max-width: 950px;
+      margin: 80px auto 20px;
+      background: white;
+      padding: 12px;
+      border-radius: 12px;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.06);
+    }
+
+    .controls { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
+    select { padding: 5px; border-radius: 6px; border: 1px solid #007bff; }
+
+    h2 { color: #007bff; font-size: 20px; margin-bottom: 5px; }
+    h3 { color: #0056b3; font-size: 16px; margin-bottom: 10px; }
+
+    .charts-container { display: flex; justify-content: center; }
+    canvas { max-width: 100%; }
+
+    #barChart, #pieChart { height: 300px; }
+
+    @media (max-width: 700px) {
+      #barChart, #pieChart { height: 300px; }
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <div class="logo">HealthPredictor</div>
+  <div class="nav-links">
+    <a href="{{ url_for('home') }}">Home</a>
+    <a href="{{ url_for('predict_page') }}">Predict</a>
+    <a href="{{ url_for('stats_page') }}">Trends</a>
+  </div>
+</nav>
+
+<div class="card">
+  <h2>Country: India (state-wise)</h2>
+  <p>Select disease, year, and chart type:</p>
+
+  <div class="controls">
+    <label for="diseaseSelect">Disease:</label>
+    <select id="diseaseSelect">
+      {% for d in diseases %}
+      <option value="{{d}}">{{d}}</option>
+      {% endfor %}
+    </select>
+
+    <label for="yearSelect">Year:</label>
+    <select id="yearSelect">
+      <option value="2020">2020</option>
+      <option value="2021">2021</option>
+      <option value="2022">2022</option>
+      <option value="2023">2023</option>
+      <option value="2024">2024</option>
+      <option value="2025">2025</option>
+    </select>
+
+    <label for="chartSelect">Chart:</label>
+    <select id="chartSelect">
+      <option value="bar">Bar Chart</option>
+      <option value="pie">Pie Chart</option>
+    </select>
+  </div>
+
+  <h3 id="title"></h3>
+  <div class="charts-container">
+    <canvas id="barChart"></canvas>
+    <canvas id="pieChart" style="display:none;"></canvas>
+  </div>
+</div>
+
+<script>
+let statewise = {};
+let barChart, pieChart;
+
+async function loadData(){
+  const res = await fetch('/api/stats/data');
+  const json = await res.json();
+  statewise = json.statewise; // Expecting STATEWISE[disease][state][year]
+  initCharts();
+}
+
+function getColors(n){
+  const palette = ['#007bff','#28a745','#ffc107','#dc3545','#17a2b8','#6f42c1','#fd7e14','#20c997','#6610f2','#e83e8c'];
+  let colors = [];
+  for(let i=0;i<n;i++){ colors.push(palette[i % palette.length]); }
+  return colors;
+}
+
+function initCharts(){
+  document.getElementById('diseaseSelect').addEventListener('change', updateCharts);
+  document.getElementById('yearSelect').addEventListener('change', updateCharts);
+  document.getElementById('chartSelect').addEventListener('change', toggleCharts);
+
+  updateCharts();
+}
+
+function updateCharts(){
+  const disease = document.getElementById('diseaseSelect').value;
+  const year = document.getElementById('yearSelect').value;
+
+  document.getElementById('title').innerText = disease + " — Statewise Patient Counts (" + year + ")";
+
+  const data = statewise[disease];
+  const states = Object.keys(data);
+  const counts = states.map(s => data[s][year] || 0);
+  const colors = getColors(states.length);
+
+  if(barChart) barChart.destroy();
+  if(pieChart) pieChart.destroy();
+
+  const barCtx = document.getElementById('barChart').getContext('2d');
+  barChart = new Chart(barCtx, {
+    type: 'bar',
+    data: { labels: states, datasets:[{label:'Patients', data: counts, backgroundColor: colors}] },
+    options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true}} }
+  });
+
+  const pieCtx = document.getElementById('pieChart').getContext('2d');
+  pieChart = new Chart(pieCtx, {
+    type: 'pie',
+    data: { labels: states, datasets:[{data: counts, backgroundColor: colors}] },
+    options: { responsive:true, maintainAspectRatio:false }
+  });
+
+  toggleCharts();
+}
+
+function toggleCharts(){
+  const chartType = document.getElementById('chartSelect').value;
+  document.getElementById('barChart').style.display = (chartType==='bar') ? 'block' : 'none';
+  document.getElementById('pieChart').style.display = (chartType==='pie') ? 'block' : 'none';
+}
+
+loadData();
+</script>
+</body>
+</html>

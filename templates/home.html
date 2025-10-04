@@ -1,0 +1,147 @@
+<!-- templates/home.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Futuristic Homepage</title>
+<style>
+/* Body and background */
+body {
+    margin:0;
+    font-family:"Poppins",sans-serif;
+    overflow:hidden;
+    background: linear-gradient(to bottom, #cce7ff, #e6f3ff); /* light blue gradient */
+    color: #111;
+}
+
+/* Navbar */
+nav {
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:15px 25px; /* same as Disease Prediction page */
+    background: rgba(255,255,255,0.85);
+    color:#111;
+    position:fixed;
+    top:0;
+    width:100%;
+    z-index:100;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+    border-radius: 0 0 15px 15px; /* rounded bottom corners */
+    height: 40px; /* similar height */
+}
+
+nav .logo {
+    font-size: 20px;
+    font-weight: bold;
+    color: #007bff;
+}
+
+nav a {
+    margin:0 12px;
+    text-decoration:none;
+    color:#007bff; /* blue links */
+    font-weight:bold;
+    transition:0.3s;
+}
+nav a:hover { color:#0056b3; }
+
+/* Canvas for particles */
+canvas { position:absolute; top:0; left:0; z-index:-1; }
+
+/* Hero section */
+.hero {
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    align-items:center;
+    height:100vh;
+    text-align:center;
+    padding:20px;
+}
+.hero h1 {
+    font-size:3rem;
+    background: linear-gradient(90deg, #007bff, #3399ff, #00bfff);
+    -webkit-background-clip:text;
+    -webkit-text-fill-color:transparent;
+    animation: glow 2s infinite alternate;
+}
+.hero p {
+    font-size:1.5rem;
+    margin-top:15px;
+    color:#0056b3;
+}
+
+@keyframes glow {
+    from { text-shadow:0 0 10px #00bfff; }
+    to { text-shadow:0 0 25px #3399ff; }
+}
+</style>
+</head>
+<body>
+<nav>
+    <div class="logo">HealthPredictor</div>
+    <div class="nav-links">
+        <a href="{{ url_for('home') }}">Home</a>
+        <a href="{{ url_for('predict_page') }}">Predict</a>
+        <a href="{{ url_for('stats_page') }}">Trends</a>
+    </div>
+</nav>
+
+<div class="hero">
+    <h1>Welcome to PathoSuggest</h1>
+    <p>Track Symptoms. Discover Diseases. Stay Safe.</p>
+</div>
+
+<canvas id="network"></canvas>
+
+<script>
+const canvas = document.getElementById("network");
+const ctx = canvas.getContext("2d");
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+const spheres = [];
+const sphereCount = 14;
+for (let i=0;i<sphereCount;i++){
+    spheres.push({ x:Math.random()*canvas.width, y:Math.random()*canvas.height, radius:10, dx:(Math.random()-0.5)*2, dy:(Math.random()-0.5)*2 });
+}
+
+function draw(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    for(let i=0;i<spheres.length;i++){
+        for(let j=i+1;j<spheres.length;j++){
+            let dx = spheres[i].x - spheres[j].x;
+            let dy = spheres[i].y - spheres[j].y;
+            let distance = Math.sqrt(dx*dx + dy*dy);
+            if(distance<250){
+                ctx.beginPath();
+                ctx.strokeStyle="rgba(0,123,255,0.3)";
+                ctx.moveTo(spheres[i].x,spheres[i].y);
+                ctx.lineTo(spheres[j].x,spheres[j].y);
+                ctx.stroke();
+            }
+        }
+    }
+    spheres.forEach(s=>{
+        ctx.beginPath();
+        ctx.arc(s.x,s.y,s.radius,0,Math.PI*2,false);
+        ctx.fillStyle="rgba(0,123,255,0.8)";
+        ctx.fill();
+        s.x+=s.dx;
+        s.y+=s.dy;
+        if(s.x+s.radius>canvas.width||s.x-s.radius<0) s.dx*=-1;
+        if(s.y+s.radius>canvas.height||s.y-s.radius<0) s.dy*=-1;
+    });
+    requestAnimationFrame(draw);
+}
+draw();
+
+window.addEventListener("resize",()=>{
+    canvas.width=window.innerWidth;
+    canvas.height=window.innerHeight;
+});
+</script>
+</body>
+</html>
